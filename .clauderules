@@ -1,0 +1,87 @@
+## Top-Level Reference Documents (agents must be aware of these before starting work)
+
+1. **[AGENTS.md](./AGENTS.md)** — the single entry point for every agent
+2. **[.claude/CLAUDE.md](./.claude/CLAUDE.md)** — the collaboration protocol (per-Phase prompts + task loop)
+3. **[docs/pm-guide/lifecycle-standard.md](./docs/pm-guide/lifecycle-standard.md)** — the spine of the macro lifecycle (8 stages)
+4. **[docs/_harness/quality-gates.md](./docs/_harness/quality-gates.md)** — the 6-stage quality-gate engine (thresholds·permission matrix)
+
+> This file is the **canonical source of language-agnostic code-quality rules**. Per-language details (naming/format)
+> are owned by `docs/coding-convention/*`, and the macro process by `docs/pm-guide/*`.
+> Recommendation/verification policy: [docs/pm-guide/recommendation_policy.md](./docs/pm-guide/recommendation_policy.md).
+
+## Standard Per-Phase Workflow (mandatory)
+
+To maximize AI-agent stability, this project follows the 6-Phase workflow below without exception.
+For the mapping to the macro lifecycle (8 stages, including Research/Feasibility), see `docs/pm-guide/lifecycle-standard.md`.
+
+### 🔄 Lifecycle Hooks & State Re-evaluation
+- **Pre-action Hook (before starting work and on project resume)**: when the user requests "proceed with the project," "continue work," "next task," "resume," "context check," etc., **auto-run the AGENTS.md §2 Pre-action Hook checklist without exception** (the authoritative definition lives in [AGENTS.md §2](./AGENTS.md)).
+- **Mid-action Hook (while work is in progress)**: whenever a state change occurs — editing code, committing, etc. — update the relevant `_log.md` (e.g. `implementation_log.md`) in real time so the current state stays trackable.
+- **Post-action Hook (after work completes)**: each time a single logical unit (task) finishes, cross-check that the overall `plan.md` progress (including DoD) matches the current result, review for anything missing, and then reflect the active→done state transition in `progress.md`.
+
+1. **Phase 1: Research (research.md)**
+   - Must include the **spike-test results** that resolve technical uncertainty and the **identified risks**.
+2. **Phase 2: Planning (plan.md)**
+   - Specify a fine-grained per-WBS work breakdown and a concrete **DoD (Definition of Done)** for each item.
+3. **Phase 3: Iterative Implementation (src/tests/)**
+   - Deliver incrementally per fine-grained work unit and perform **self-tests** grounded in the DoD.
+4. **Phase 4: Delivery (staging/QA verification)**
+   - After the full test suite passes, deploy to the staging environment and report the QA result to the user.
+5. **Phase 5: Deployment (production deployment — approval required)**
+   - Run production deployment only after **explicit user approval (`[RELEASE APPROVED]`)**.
+6. **Phase 6: Review & Assetization (lessons_learned.md)**
+   - After work completes, record failure/success patterns to perform **knowledge assetization**.
+
+## Technical and Implementation Detail Rules
+
+### File Operations
+- Read the entire file before editing
+- Preserve the existing code style and patterns
+- Do not create unnecessary files
+- **[Re-confirm M-task DoD — mandatory]**: **immediately before** Editing/Writing any file under `{{SRC_ROOT}}/**` or `{{TESTS_ROOT}}/**`, **Read the `docs/ai-workflow/plan.md` DoD lines** for the M-task currently in progress and re-confirm the scope. Any file path or feature not specified in the DoD **must not be modified**. If necessary, update plan.md first, then proceed.
+- **[Skeleton-First principle — mandatory in Phase 3]**: when executing a Phase 3 M-task, if you are **creating a file for the first time** under `{{SRC_ROOT}}/**`, always start with a **skeleton containing only docstrings + signatures**. Get an architect review in the body-less state (`...`/`pass`); for safety-boundary tasks, after a parallel security-reviewer review, leave a `chore(<task-id>): write skeleton [HARNESS]` commit. Only then enter RED → GREEN. **[Hard gate] never start RED/GREEN (body implementation) before the skeleton review PASSes (0 CRITICAL/HIGH findings)** — the purpose of this stage is to catch design defects, missing features, and call-relationship contradictions *before writing code*, using only the comments (docstrings·implementation hints). If there is even one CRITICAL/HIGH, fix the skeleton and re-review, and move to implementation only after it passes. Per-language skeleton rules are in the Skeleton section of `docs/coding-convention/<language>.md`. **Exemptions**: config/build artifacts (dependency manifests, build scripts, service definitions, and other self-documenting files) are explicitly exempted in the project's plan.md.
+- **Safety-boundary special rule**: when editing a path registered in `.harness.toml [safety_boundary].paths`, in addition to reading the plan.md DoD, **explicitly ask the user for confirmation** (the list is defined in that one place only and merely referenced here — no duplication or re-description). Can be automated via a PreToolUse hook.
+
+### Coding Convention References
+
+> Naming rules, function-naming rules, and coding style follow the per-language files below. Do not duplicate these definitions in this file.
+> - Python: `docs/coding-convention/Python.md`
+> - JavaScript/TypeScript (optional): `docs/coding-convention/JavaScript.md`
+> - C (optional): `docs/coding-convention/C.md`
+
+### Code Quality and Clean-Code Principles (readability = stability)
+#### 1. Structure and Clarity
+- Keep functions within **50 lines of executable code (SLOC)** and files within **800 SLOC**. **Docstrings, comments, and blank lines are excluded from the count.** When the logic exceeds 30 lines or visibility drops, extract a helper function and place it at a sibling level.
+- A single function/class performs exactly 'one independent role' (Single Responsibility Principle).
+- **Comment audience**: on this project, engineers who are not SW specialists (mechanical/electrical/field QA/outsourced) may read the code directly. A docstring explains **WHAT (the function's role) + WHEN/WHERE (the call context) + WHY (the design rationale)** together, spelling out or briefly glossing technical terms. Write in a natural, professional documentation style, and avoid the AI-typical "Step 1/2/3, conclusion" enumeration. Detailed rules: `docs/coding-convention/<language>.md`. (Language parameter: `.harness.toml [language].docstring_lang` — default English; Korean (or other) projects set docstring_lang accordingly.)
+- **Function nesting limit — Nested Function**: nested function definitions inside a function are allowed to **at most 1 level**, and wherever possible lift all helper functions to the file's top level (Lifting) to secure readability.
+- No over-engineering: avoid unnecessary design patterns or nested abstractions and keep the simplest (KISS), most intuitive structure.
+
+#### 2. Stability and Flow Control
+- **Control-flow nesting limit — Control Flow Nesting**: limit if/else/loop nesting to **at most 3 levels**. When exceeded, flatten with the Guard Clause (Early Return) pattern.
+- Strictly avoid deep if-else nesting; apply the early-return pattern at the top of the function when a condition is not met.
+- Place input validation (Guard Clauses, Fail-Fast) at the very top of every major function.
+- Avoid direct mutation of objects/state; favor pure functions that return copies, and immutability.
+- No hardcoded values (magic numbers/strings): replace them with named constants or environment variables that state their purpose.
+- Write comments only to explain 'why' (the business rationale) rather than 'what' (the logic), and keep them concise.
+
+#### 3. Crisis Management and Rollback
+- Avoid incremental patching (band-aiding): if debugging fails 2–3 times or the logic gets tangled, do not force a fix — propose a rollback to the developer.
+- When performing a rollback (git reset, etc.), also sync the workflow documents that had changed (plan.md/research.md, etc.) back to the corresponding point in time.
+
+### Security
+- Never include secrets, API keys, or passwords in code.
+- Validate all user input.
+- Security is also the 4th axis of every option scorecard (`docs/pm-guide/recommendation_policy.md` §1), reviewed per task at Stage 4 (`security-reviewer`), and audited once per release at **Gate S** before the production push (`docs/pm-guide/security_gate.md`).
+
+### Communication and Information Gathering
+- Ask before implementing when requirements are unclear.
+- Record major decisions in implementation_log.md.
+- To understand the project structure/overall picture, first explore the design documents and reference material in the `docs/` folder; if none exist, ask the developer to provide material.
+- For checking the functional-spec form and the `plan.md` writing procedure, follow the Phase 2 guidance in `.claude/CLAUDE.md`.
+
+### Self-Verification and Test Enforcement (TDD & DoD)
+- When writing production code, always write the corresponding unit-level test code at the same time.
+- Compose test cases comprehensively based on the **DoD (Definition of Done)** specified in `plan.md`.
+- Run the tests yourself in the terminal and confirm a 'Pass' result on the console before proceeding to the next task.
+- Include the technical risks/spike-verification items identified in `research.md` in your tests.

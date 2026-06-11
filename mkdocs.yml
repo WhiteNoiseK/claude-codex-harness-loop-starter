@@ -1,0 +1,65 @@
+# Human-review documentation portal — renders the docs/ markdown knowledge base to HTML.
+# md is the single source of truth; this only RENDERS it. Never hardcode spec values/tables
+# into HTML or this config (that would create a second source = drift). `site/` is gitignored.
+# Navigation is AUTO-GENERATED (awesome-pages): add a .md file under docs/ and it appears by itself.
+# Ordering of the top entry points is pinned in docs/.pages; everything else is auto.
+
+site_name: Harness Starter Kit — Docs
+site_description: Human-review portal for the markdown knowledge base (md is the single source — HTML is generated)
+docs_dir: docs
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+  language: en
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: blue
+      accent: teal
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: blue
+      accent: teal
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  font:
+    text: Noto Sans KR  # includes Latin glyphs — renders both English and Korean docs
+    code: JetBrains Mono
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - tables
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+  - roamlinks   # resolves Foam [[wikilinks]] + relative .md links
+  - callouts    # renders Obsidian/Foam-style > [!note] callouts
+  - awesome-pages  # auto-nav from the folder tree (no hand-maintained nav:)

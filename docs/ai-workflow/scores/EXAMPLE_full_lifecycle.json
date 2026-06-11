@@ -1,0 +1,121 @@
+[
+  {
+    "_EXAMPLE_NOTE": "Teaching example — not a real task. Do not use as gate input. Shows one entry per stage of a single task (R0..AUDIT). Since JSON has no comments, explanations are placed in _note/_EXAMPLE_* fields.",
+    "_schema_authority": "docs/_harness/quality-gates.md (§ handoff JSON schema). Threshold numbers must match .harness.toml [gates].",
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "R0_SKELETON",
+    "agent": "writer (single writer)",
+    "status": "pass",
+    "context": "Skeleton + docstring written. R0 reviews whether the DoD/authority docs are fully reflected. All methods NotImplementedError → existing tests unchanged (behavior-neutral).",
+    "artifacts": {
+      "files_written": ["{{SRC_ROOT}}/.../<module>.py (new — skeleton + contract docstring)"],
+      "files_modified": [],
+      "verify": { "ruff": 0, "black": "unchanged", "mypy_strict": 0, "import": "OK" }
+    },
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  },
+  {
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "RED",
+    "agent": "test-writer",
+    "score": 95,
+    "threshold": 90,
+    "status": "pass",
+    "_note": "Stage 1 RED threshold = .harness.toml [gates].red_threshold (90). Confirm intended RED: before implementation, pytest must fail with NotImplementedError/AssertionError.",
+    "artifacts": {
+      "files_written": ["{{TESTS_ROOT}}/unit/test_<module>.py"],
+      "pytest_result": { "passed": 0, "failed": 12, "skipped": 0 },
+      "red_verified": true,
+      "anti_pattern_scan": "pytest.raises(NotImplementedError)=0, skip/xfail=0, weak-assertions=0"
+    },
+    "dod_mapping": [
+      { "dod_item": "<DoD item A>", "test_names": ["test_<subject>_<condition>_<expected>"] }
+    ],
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  },
+  {
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "GREEN",
+    "agent": "impl-coder",
+    "score": 90,
+    "threshold": 85,
+    "status": "pass",
+    "_note": "Stage 2 GREEN threshold = .harness.toml [gates].green_threshold (85). 100% of this task's tests pass + mypy strict 0.",
+    "artifacts": {
+      "files_modified": ["{{SRC_ROOT}}/.../<module>.py"],
+      "pytest_result": { "passed": 12, "failed": 0, "skipped": 0 },
+      "mypy_errors": 0,
+      "ruff": 0,
+      "black": "unchanged"
+    },
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  },
+  {
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "VERIFY",
+    "agent": "harness_run_verify.sh",
+    "status": "pass",
+    "_note": "Stage 3 = binary pass/fail. coverage is measured by DOTTED-MODULE path — no file path (prevents a false 0%).",
+    "checks": {
+      "pytest": "12 passed",
+      "coverage_cmd": "python -m pytest {{TESTS_ROOT}}/unit/test_<module>.py --cov=<dotted.module.path> --cov-fail-under=80",
+      "coverage_pct": 87.3,
+      "mypy_errors": 0,
+      "ruff_errors": 0,
+      "black": "unchanged"
+    },
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  },
+  {
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "REVIEW",
+    "agent": "code-reviewer + security-reviewer (parallel)",
+    "score": 96,
+    "threshold": 95,
+    "status": "pass",
+    "_note": "Stage 4 pass = score >= review_threshold(95) AND critical_count==0 AND high_count==0. A violation of either fails immediately.",
+    "code_reviewer": { "verdict": "PASS", "critical": 0, "high": 0, "medium": 1, "low": 2, "score": 96 },
+    "security_reviewer": { "verdict": "PASS", "critical": 0, "high": 0, "medium": 1 },
+    "findings": [
+      { "severity": "MEDIUM", "file": "{{SRC_ROOT}}/.../<module>.py", "line": 42, "rule": "<rule>", "fix_hint": "<hint> (can be deferred until the next task)" }
+    ],
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  },
+  {
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "FIX",
+    "agent": "refactor-fixer",
+    "score": 96,
+    "threshold": 95,
+    "status": "pass",
+    "_note": "Stage 5 = edit only the files/lines listed in the REVIEW findings[] scope. AUDIT rejects out-of-scope edits. After FIX, rerun Stage 4.",
+    "findings_fixed": ["[MEDIUM] <module>.py:42 — <what was fixed>"],
+    "review_scope_compliance": "Limited to findings[] scope. tests/ unchanged (test-writer's area). Safety boundary unchanged.",
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  },
+  {
+    "task_id": "{{TASK_ID_EXAMPLE}}",
+    "stage": "AUDIT",
+    "agent": "score-auditor",
+    "score": 97,
+    "threshold": 95,
+    "status": "pass",
+    "_note": "Stage 6 = meta verification. Cross-check the previous stages' numbers by rerunning them in-session (claimed == actual ±0). Also check for uncommitted in-scope stragglers in the working tree (do not look only at the committed diff).",
+    "reverification_table": [
+      { "metric": "pytest_passed", "claimed": 12, "actual": 12, "match": true, "cmd": "python -m pytest {{TESTS_ROOT}}/unit/test_<module>.py -q" },
+      { "metric": "mypy_errors", "claimed": 0, "actual": 0, "match": true, "cmd": "python -m mypy {{SRC_ROOT}}/.../<module>.py --strict --explicit-package-bases --ignore-missing-imports" },
+      { "metric": "ruff_errors", "claimed": 0, "actual": 0, "match": true },
+      { "metric": "coverage_pct", "claimed": 87.3, "actual": 87.3, "match": true, "_note": "cov is re-measured by dotted-module (within ±0.5%)" }
+    ],
+    "citations": [
+      { "file": "{{SRC_ROOT}}/.../<module>.py", "line": 42, "note": "existence confirmed via grep" }
+    ],
+    "hallucination_flags": [],
+    "permission_matrix_violations": [],
+    "working_tree_straggler_check": { "cmd": "git status --short {{SRC_ROOT}}/ {{TESTS_ROOT}}/", "in_scope_straggler_count": 0 },
+    "dod_incomplete_items": [],
+    "commit_hash": "<hash after [HARNESS] commit>",
+    "final_verdict": "AUDIT PASS — claimed==actual ±0, hallucination_flags=[], permission matrix clean, all DoD items met.",
+    "timestamp": "YYYY-MM-DDTHH:MM:SS+09:00"
+  }
+]

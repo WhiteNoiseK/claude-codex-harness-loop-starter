@@ -1,0 +1,38 @@
+{
+  // === Foam knowledge-graph settings (docs vault) ===
+  // Validated against: foam.foam-vscode v0.29.2 package.json (only keys that passed cross-verification)
+
+  // Turn off auto-generation of reference-definitions for wikilinks → avoids auto-editing existing document bodies / diff noise
+  "foam.edit.linkReferenceDefinitions": "off",
+
+  // Graph targets = markdown only (exclude non-md like images/PDF/JSON from nodes)
+  "foam.files.include": ["**/*.md"],
+
+  // Exclude graph-noise directories (prevents the knowledge graph from slowing down or surfacing irrelevant files)
+  "foam.files.exclude": [
+    "**/handoffs/**",     // transient handoff records
+    "**/_tmp_*/**",       // underscore-prefixed temp dumps (PDF/images)
+    "**/.tmp/**",         // root .tmp (pytest/temp artifacts)
+    "**/word_export/**",  // document-build artifacts (including node_modules)
+    "**/node_modules/**"
+  ],
+
+  // Auto-update all wikilinks on note rename/move → prevents broken links (stability)
+  "foam.links.sync.enable": true,
+
+  // Preview the target note on wikilink hover
+  "foam.links.hover.enable": true,
+
+  // Native wikilink format on completion (valid values: wikilink | link)
+  "foam.completion.linkFormat": "wikilink",
+
+  // Turn off auto-opening the graph on startup (open manually — IDE stability)
+  "foam.graph.onStartup": false,
+
+  // Graph node color: single-authority spec (frontmatter type: spec) → orange highlight (Foam type-based coloring)
+  "foam.graph.style": {
+    "node": {
+      "spec": "#ff8c00"
+    }
+  }
+}

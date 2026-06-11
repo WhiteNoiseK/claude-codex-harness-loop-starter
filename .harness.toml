@@ -1,0 +1,108 @@
+# ============================================================================
+#  .harness.toml — the harness Single Config Seam
+# ============================================================================
+#  Purpose: the root-cause fix for "something drifts a little every time I start a project, but I can't tell what."
+#
+#  On the original project the same values (SCORES_DIR, the src/ path, coverage 80, audit threshold 95,
+#  the task-id regex, ...) were scattered as literals across 6+ files — scripts / agents /
+#  CLAUDE.md / quality-gates.md / the commit guard. Fix one and miss the rest = partial silent drift.
+#
+#  This file is that single source. Every scripts/*.{sh,py} reads these values *at runtime* via
+#  _harness_config.py, and falls back to sensible defaults even when the file or a key is absent.
+#  harness_init.py only creates/updates this file + snapshots the baseline (runtime reads, not token
+#  substitution → init is not a single point of failure). To change a value → here, in one place.
+# ============================================================================
+
+[project]
+# New-project info — filled by a human (🖊). Keep consistent with pyproject.toml [project].
+name        = "{{PROJECT_NAME}}"
+description = "{{PROJECT_DESCRIPTION}}"
+kit_version = "0.1.0"            # version of the cloned starter kit (for tracking back-drift)
+
+[paths]
+# Roots for code/tests/artifacts. The original project used src/backend/, but this varies per project.
+src_root      = "src"                          # e.g. "src", "src/backend", "app", "lib"
+tests_root    = "tests"
+scores_dir    = "docs/ai-workflow/scores"
+progress_file = "docs/ai-workflow/progress.md"
+plan_file     = "docs/ai-workflow/plan.md"
+
+[task_id]
+# WBS / task-id grammar. The original project's commit guard supported only 1–2 segments, so it could
+# not read a 3-segment id (M3-RT-PERSIST-01) and 9 commits bypassed the guard. → generalized to multi-segment.
+# Detailed grammar: docs/_harness/TASK_ID_GRAMMAR.md.
+regex   = '\((M\d+(?:-[A-Za-z0-9]+)+)\)'       # allows one or more segments
+example = "M3-RT-PERSIST-01"
+
+[gates]
+# 6-stage quality-gate thresholds. Single source = docs/_harness/quality-gates.md.
+# The values here are the operational values the scripts read, and must match quality-gates.md.
+coverage_threshold = 80          # --cov-fail-under
+audit_threshold    = 95          # Stage 6 AUDIT pass score
+red_threshold      = 90          # Stage 1 RED
+green_threshold    = 85          # Stage 2 GREEN
+review_threshold   = 95          # Stage 4 REVIEW (AND critical=0 AND high=0)
+
+[language]
+# Language profile — the engine (stage flow · re-run comparison · anti-forgery · scope limiting) is language-agnostic.
+# Only the gate commands and the docstring language are swapped here. A non-Python project only changes this block.
+profile           = "python"
+docstring_lang    = "en"         # comment/docstring language (non-specialist-readable NFR). Default English; Korean (or other) projects set docstring_lang accordingly.
+test_cmd          = "python -m pytest"
+coverage_cmd      = "python -m pytest --cov"     # note: the --cov target must be a dotted module (not a file path)
+type_cmd          = "python -m mypy --strict --explicit-package-bases --ignore-missing-imports"
+lint_cmd          = "python -m ruff check"
+format_cmd        = "python -m black --check"
+
+[safety_boundary]
+# Safety boundary — paths the agent must not auto-modify and for which it must get explicit user approval.
+# On the original project these were hardware drivers / external-device adapters / the shutdown path. The mechanism is reusable; the list is per-project.
+# Define them in one place (here) and have CLAUDE.md/AGENTS.md reference this list (no duplication or re-description).
+# FIRST-RUN: confirm this list before the loop's first run. Empty = generic defaults only; harness_init.py
+# prints a SAFETY BOUNDARY advisory until project-specific paths are declared here.
+paths = [
+  # "src/backend/core/hw_driver/**",       # e.g. a hardware accelerator/driver boundary like an FPGA
+  # "src/.../adapters/external_device/**",
+]
+
+[review_overlay]
+# Independent-reviewer (e.g. Codex) R0-R4 overlay — the headless auto-collaboration layer.
+# Single Writer = Claude / Independent Reviewer = Codex. Driven by the /kit:auto-harness command.
+# How-to: docs/ai-workflow/codex_automation_setup_guide.md ; policy: docs/ai-workflow/codex_loop_operating_policy.md
+enabled = true
+# SEVERITY IS NOT A STOP AXIS (default). At detection the problem is already identified, so every finding
+# (incl. HIGH/CRITICAL) self-heals in the 6-stage FIX loop; the loop stops only on the 5 axes
+# (trust-collapse / 3x-retry / safety-boundary / judgmental / spec-conflict). See codex_loop_operating_policy.md §2-§3.
+# OPT-IN severity gate (high-stakes projects only): set severity_is_stop_axis = true, and any finding whose
+# severity exceeds severity_auto_max then pauses for a human. auto_gate.py reads both knobs at runtime.
+severity_is_stop_axis = false      # default: severity never stops the loop (the doctrine)
+severity_auto_max     = "MEDIUM"   # only used when severity_is_stop_axis = true (opt-in threshold)
+# A headless read-only reviewer cannot re-run pytest, so a reviewer PASS is logic-only. The fact layer =
+# local re-run (claimed == actual). Never proceed on a reviewer PASS alone (logic AND fact must both pass).
+fact_layer_required = true
+# First-application acknowledgement gate. Before the loop's FIRST run, the agent MUST present the stop-point
+# config (this severity_auto_max + the 5 STOP axes in docs/ai-workflow/codex_loop_operating_policy.md §3 +
+# [safety_boundary].paths below) to the operator and obtain explicit approval, then set this true. Until then
+# /kit:auto-harness only presents the stop-points and asks — it does NOT run the loop. See policy doc §0.
+# RESPONSIBILITY: once true, these stop-points — and the choice NOT to change them — are the operator's
+# responsibility. The agent runs strictly per this config and never silently alters a threshold; outcomes of
+# the operator's chosen (unchanged) thresholds are the operator's, not the agent's. To change: edit here.
+stop_points_acknowledged = false
+# Hard-stop regardless of severity: [safety_boundary] paths, secrets, real-HW execution, schema/migration,
+# production deploy, out-of-scope dirty delete, single-authority spec/doc conflict, irreversible/ambiguous design.
+
+[integrity]
+# Review hash manifest — the only reliable way to detect reviewer edits when most of the repo is untracked
+# (git diff is useless then). Flow: snapshot pre-review -> reviewer (read-only) -> snapshot post -> set-diff.
+hash_algo        = "sha256"
+manifest_globs   = [
+  "src/**/*.py", "tests/**/*.py", "scripts/**/*",
+  "pyproject.toml", ".harness.toml", ".gitignore", ".gitattributes",
+]
+manifest_exclude = [
+  "**/__pycache__/**", "**/.pytest_cache/**", "**/.mypy_cache/**",
+  "**/.ruff_cache/**", "data/**",
+  "**/*.sqlite3", "**/*.db",
+  "**/.env*", "**/*secret*", "**/*token*", "**/*.key", "**/*.pem",
+  "**/credential*",
+]

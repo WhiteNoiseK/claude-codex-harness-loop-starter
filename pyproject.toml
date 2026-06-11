@@ -1,0 +1,102 @@
+# ============================================================================
+#  pyproject.toml — the Single Tool-Config Home
+# ============================================================================
+#  ROLE: the single source for every static-analysis/test tool's config (mypy/ruff/black/coverage/pytest).
+#
+#  WHY: the original project lacked this file, so config was scattered across pytest.ini + inline script flags +
+#       agent docstrings. Fix one and miss the rest = silent drift.
+#       This kit also consolidates the pytest config here under [tool.pytest.ini_options].
+#
+#  Single-home rule: do not keep a separate pytest.ini alongside this. If pyproject's
+#  [tool.pytest.ini_options] and a separate pytest.ini both exist, pytest prefers pytest.ini and
+#  silently ignores this file's settings → two systems coexisting. Keep it here, in one place.
+#
+#  Value consistency: operational values like the coverage threshold (80) and task-id are canonical in
+#  .harness.toml, and the scripts read those values. fail_under here must match (.harness.toml [gates].coverage_threshold).
+# ============================================================================
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "{{PROJECT_NAME}}"            # harness_init.py substitutes .harness.toml [project].name
+version = "0.1.0"
+description = "{{PROJECT_DESCRIPTION}}"
+requires-python = ">=3.11"
+
+# ────────────────────────────────────────────────────────────────────────
+#  mypy — strict type checking
+#  Same flags as .harness.toml [language].type_cmd (strict / explicit-package-bases /
+#  ignore-missing-imports). The gate command reads this config in the form `python -m mypy {{SRC_ROOT}}`.
+# ────────────────────────────────────────────────────────────────────────
+[tool.mypy]
+strict = true
+explicit_package_bases = true        # removes package-root ambiguity in a src layout
+ignore_missing_imports = true        # ignore third-party libs without type stubs (avoid gate noise)
+warn_unused_ignores = true
+warn_redundant_casts = true
+show_error_codes = true
+# A non-Python clone only swaps the type_cmd in .harness.toml [language] instead of this block.
+
+# ────────────────────────────────────────────────────────────────────────
+#  ruff — lint (+ some formatting). Gate command: `python -m ruff check {{SRC_ROOT}}`
+# ────────────────────────────────────────────────────────────────────────
+[tool.ruff]
+line-length = 88                     # same as black
+target-version = "py311"
+# src layout — the basis for first-party import sorting. Default (src/tests). Tools read this file
+# statically, so .harness.toml runtime reads do not apply → if the layout differs (e.g. src/backend), edit here directly.
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "W"]   # pycodestyle/pyflakes/isort/bugbear/pyupgrade
+ignore = ["E501"]                    # line length is managed by black → silence ruff's duplicate warning
+
+# ────────────────────────────────────────────────────────────────────────
+#  black — formatter. Gate command: `python -m black --check {{SRC_ROOT}}`
+# ────────────────────────────────────────────────────────────────────────
+[tool.black]
+line-length = 88
+target-version = ["py311"]
+
+# ────────────────────────────────────────────────────────────────────────
+#  coverage — coverage measurement + threshold. fail_under must match
+#  .harness.toml [gates].coverage_threshold (currently 80). If they diverge = drift.
+#
+#  CRITICAL (drift fix): the --cov target must always be a DOTTED module path (e.g. --cov=src.pkg.mod),
+#  not a filesystem path (e.g. --cov=src/pkg/mod.py). Give it a file path and coverage fails to
+#  match, reports a false 0%, and an AUDIT re-run reproduces the same 0% and lets it pass.
+#  Always use dot (.) notation when writing gate commands.
+# ────────────────────────────────────────────────────────────────────────
+[tool.coverage.run]
+branch = true
+source = ["src"]                     # measurement root (default src; edit if the layout differs). Auto-mapped to dotted-notation modules
+
+[tool.coverage.report]
+fail_under = 80                      # == .harness.toml [gates].coverage_threshold
+show_missing = true
+skip_covered = false
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+  "\\.\\.\\.",                       # skeleton bodies (...) are excluded from coverage
+]
+
+# ────────────────────────────────────────────────────────────────────────
+#  pytest — markers/timeout/asyncio. (No separate pytest.ini shipped — see the single-home rule above)
+#  Markers are consolidated as unit/integration/slow/performance. Gate command: .harness.toml [language].test_cmd
+# ────────────────────────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+testpaths = ["tests"]               # default tests; edit if the layout differs (tools read this statically)
+addopts = "-ra --strict-markers --tb=short"
+asyncio_mode = "auto"               # auto-detect async def tests (pytest-asyncio)
+timeout = 30                         # default 30s — keeps a hanging test from holding the runner indefinitely.
+                                     # Override per-test with @pytest.mark.timeout(N).
+markers = [
+  "unit: unit test (no external I/O, mocks only)",
+  "integration: interaction test wiring several modules/adapter mocks together",
+  "slow: runtime over 1 second — can be excluded from the everyday loop",
+  "performance: performance-DoD test (latency/throughput — run only when specified)",
+]

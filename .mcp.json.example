@@ -1,0 +1,37 @@
+{
+  "_README": [
+    "Project-scoped MCP config example. Usage: copy this file to .mcp.json → keep only the servers you need and",
+    "delete the _README/_VERIFY keys → approve in the /mcp panel. .mcp.json is committable for team sharing (use ${ENV} expansion for keys → no plaintext secrets).",
+    "Pass tokens via environment variables: ${GITHUB_TOKEN} or ${VAR:-default}. ${CLAUDE_PROJECT_DIR} = project root (stdio only).",
+    "Add/manage: claude mcp add ... / claude mcp list / /mcp.  For details and verification: docs/ai-tooling/AI_TOOLING.md",
+    "The server packages/URLs below can change, so confirm against the verification table in docs/ai-tooling/AI_TOOLING.md before adding."
+  ],
+  "_VERIFY": "Package names for exa·context7·firecrawl etc. change often → confirm the current name in the official directory before adding.",
+  "mcpServers": {
+    "github": {
+      "_purpose": "code/repo search, issues, PRs (research/reuse-investigation stage). Verified (HTTP).",
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": { "Authorization": "Bearer ${GITHUB_TOKEN}" }
+    },
+    "playwright": {
+      "_purpose": "browser automation/E2E (Delivery stage). Verified (stdio, npx).",
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
+    },
+    "context7": {
+      "_purpose": "library/API documentation lookup (confirm API behavior before implementing). ⚠ verify the current package before use.",
+      "_disabled_until_verified": true,
+      "type": "stdio",
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"]
+    },
+    "exa": {
+      "_purpose": "web/neural search (when GitHub/official docs are not enough). ⚠ verify the current package/endpoint before use.",
+      "_disabled_until_verified": true,
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp?exaApiKey=${EXA_API_KEY}"
+    }
+  }
+}

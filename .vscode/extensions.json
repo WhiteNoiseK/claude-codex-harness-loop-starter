@@ -1,0 +1,10 @@
+{
+  // Recommended extensions — Foam knowledge base + mermaid diagram preview.
+  // (Only identifiers present on both Open VSX and the VS Marketplace are registered.)
+  "recommendations": [
+    "foam.foam-vscode",                  // Foam core (knowledge graph/wikilinks/backlinks)
+    "yzhang.markdown-all-in-one",        // markdown editing helpers (shortcuts/TOC)
+    "bierner.markdown-mermaid"           // renders mermaid code blocks (e.g. in _TEMPLATE_erd.md) in the built-in preview (Ctrl+Shift+V)
+  ]
+  // Excluded: markdown auto-format extensions (md auto-format edits existing bodies → conflicts with the surgical-change rule)
+}

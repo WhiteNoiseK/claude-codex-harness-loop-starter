@@ -1,0 +1,8 @@
+title: Docs
+nav:
+  - index.md
+  - _recent.md
+  - _authority.md
+  - _field_cascade.md
+  - _knowledge-architecture.md
+  - ...   # everything else (all domain folders + any newly added file) appears here automatically

@@ -1,0 +1,27 @@
+# ────────────────────────────────────────────────────────────────────────
+# requirements-dev.txt — dev / test dependencies (the harness toolchain)
+#
+# ROLE: the pytest + static analysis (mypy/ruff/black) + coverage + bandit that the 6-stage quality gate depends on.
+#       Never install these in a production environment.
+#
+# It includes every production (requirements.txt) package and then adds the dev tools,
+# so `pip install -r requirements-dev.txt` works on its own.
+# ────────────────────────────────────────────────────────────────────────
+
+# include the production dependencies
+-r requirements.txt
+
+# ── testing ────────────────────────────────────────────────────────────
+pytest>=8.0,<10.0
+pytest-asyncio>=0.24,<2.0          # asyncio_mode=auto (pyproject [tool.pytest.ini_options])
+pytest-cov>=5.0,<8.0              # --cov / --cov-fail-under (Stage 3 VERIFY)
+pytest-mock>=3.12,<4.0           # the mocker fixture
+pytest-timeout>=2.3,<3.0         # default timeout=30 (pyproject) — force-kills hanging tests (Stage 3 stability)
+
+# ── static analysis ─────────────────────────────────────────────────────────
+mypy>=1.13,<2.0                  # type checking (strict mode — pyproject [tool.mypy])
+ruff>=0.6,<1.0                   # lint (+ some formatting)
+black>=24.0,<26.0               # code formatter
+
+# ── security scanning (assists the Stage 4 security-reviewer) ───────────────────────
+bandit>=1.7,<2.0

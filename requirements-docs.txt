@@ -1,0 +1,9 @@
+# Docs portal (md -> HTML for human review). Install only when you want to build/preview the portal:
+#   pip install -r requirements-docs.txt
+# These are NOT runtime deps of the project being built — keep them out of requirements.txt.
+mkdocs==1.5.3
+mkdocs-material==9.5.13
+mkdocs-roamlinks-plugin==0.3.2
+mkdocs-callouts==1.16.1        # 1.16.x uses importlib.metadata (older 1.9 imported pkg_resources, removed in setuptools 81+)
+mkdocs-awesome-pages-plugin==2.9.2
+pymdown-extensions==10.21.3    # >=10.8 fixes pygments filename=None crash in pymdownx.highlight

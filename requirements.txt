@@ -1,0 +1,35 @@
+# ────────────────────────────────────────────────────────────────────────
+# requirements.txt — single canonical source for production dependencies
+#
+# ROLE: pin the external packages the application runtime imports to reproducible version ranges.
+#       dev/test tools (pytest, mypy, ruff, black, bandit ...) are separated into requirements-dev.txt.
+#
+# WHY single canonical: the original project had requirements duplicated in the root and backend
+#       directories, causing drift where only one side got updated. This kit keeps just this one pair at the kit root.
+#
+# Install
+# ----
+#   pip install -r requirements.txt              # production
+#   pip install -r requirements-dev.txt          # dev + test (includes this file via -r)
+#
+# PIN POLICY
+# -----------------------
+# - Packages sensitive to major-version compatibility (e.g. Pydantic v2) get an exact pin: `==2.13.2`.
+# - Everything else gets a range pinned to a minor upper bound: `>=2.2,<3.0`.
+# - When adding/changing a dependency, update this file and the lockfile (if any) together.
+# - Domain/hardware-specific libraries (serial · numeric · vendor SDKs) are added only when the project actually uses them.
+#   (This template intentionally leaves domain libraries empty.)
+# ────────────────────────────────────────────────────────────────────────
+
+# This template has no mandatory production dependencies — add only what your project needs below.
+
+# ── (optional) web API stack — uncomment if needed ───────────────────────
+# A neutral FastAPI stack. Leave it empty if you are not building a REST/web backend.
+# fastapi==0.136.0
+# uvicorn[standard]==0.44.0          # standard extras = httptools+uvloop (Linux acceleration)
+# pydantic==2.13.2                   # data validation (major-version-compatibility sensitive → exact pin)
+# httpx==0.28.1                      # HTTP client (FastAPI TestClient depends on it)
+
+# ── (optional) config-file loaders — uncomment if needed ────────────────────────
+# PyYAML==6.0.3                      # load YAML config
+# python-dotenv>=1.0,<2.0           # load .env (see .env.example)

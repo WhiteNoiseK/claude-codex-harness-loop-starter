@@ -1,0 +1,77 @@
+# ============================================================================
+#  .github/workflows/harness.yml — CI gate (the same gates as the local hooks)
+# ============================================================================
+#  ROLE: on push / PR, re-run the same gates as the local PreToolUse commit guard — so that even if
+#  the gate is bypassed locally or passes due to environment differences, CI is the last line of defense.
+#
+#  Fill in when cloning (🖊):
+#    - SRC_PKG: the DOTTED module path for --cov (e.g. "src" for a "src" layout, "myapp" for a package).
+#               CRITICAL: must be a dot (.) notation module path — no file paths (src/a/b.py), which give a false 0%.
+#    - Keep it consistent with .harness.toml [paths] (src_root / tests_root).
+#  The threshold (80) matches .harness.toml [gates].coverage_threshold and pyproject [tool.coverage.report].
+# ============================================================================
+
+name: harness
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+env:
+  # Substitute with .harness.toml values when cloning. SRC_PKG must be a dotted module path.
+  SRC_ROOT: "src"
+  TESTS_ROOT: "tests"
+  SRC_PKG: "src"            # --cov target (DOTTED — not a file path)
+  COV_FAIL_UNDER: "80"      # == .harness.toml [gates].coverage_threshold
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dev toolchain
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # ── Stage 3 VERIFY gate (same configuration as the local harness_run_verify.sh) ──
+      - name: Lint (ruff)
+        run: python -m ruff check "${SRC_ROOT}" "${TESTS_ROOT}"
+
+      - name: Format check (black)
+        run: python -m black --check "${SRC_ROOT}" "${TESTS_ROOT}"
+
+      - name: Type check (mypy strict)
+        # Skeleton-aware: a freshly-cloned kit ships src/ empty (only .gitkeep). mypy errors out
+        # ("no .py[i] files in directory") on an empty tree, so skip until source exists — the gate
+        # auto-activates the moment you add a .py under src/.
+        run: |
+          if [ -n "$(find "${SRC_ROOT}" -name '*.py' -print -quit)" ]; then
+            python -m mypy --strict --explicit-package-bases --ignore-missing-imports "${SRC_ROOT}"
+          else
+            echo "::notice title=mypy deferred::${SRC_ROOT}/ has no .py files yet (fresh skeleton) — type-check gate activates once you add source."
+          fi
+
+      - name: Tests + coverage
+        # --cov is a DOTTED module path (${SRC_PKG}) — no file paths (prevents a false 0%, drift fix).
+        # Skeleton-aware: with src/ empty the coverage floor is mathematically unreachable (0%), so the
+        # harness self-tests still run but without --cov-fail-under until source exists. Once src/ has
+        # a .py, the full ${COV_FAIL_UNDER}% coverage gate is enforced.
+        run: |
+          if [ -n "$(find "${SRC_ROOT}" -name '*.py' -print -quit)" ]; then
+            python -m pytest "${TESTS_ROOT}" \
+              --cov="${SRC_PKG}" \
+              --cov-report=term-missing \
+              --cov-fail-under="${COV_FAIL_UNDER}"
+          else
+            echo "::notice title=coverage gate deferred::${SRC_ROOT}/ has no .py files yet — running tests without the ${COV_FAIL_UNDER}% coverage floor until source is added."
+            python -m pytest "${TESTS_ROOT}"
+          fi
